@@ -44,7 +44,8 @@ async function verifyKey(
 }
 
 async function verifyAnthropic(key: string) {
-  const res = await fetch("https://api.anthropic.com/v1/messages", {
+  // Use count_tokens endpoint — free, no generation cost, just checks auth
+  const res = await fetch("https://api.anthropic.com/v1/messages/count_tokens", {
     method: "POST",
     headers: {
       "x-api-key": key,
@@ -52,21 +53,18 @@ async function verifyAnthropic(key: string) {
       "content-type": "application/json",
     },
     body: JSON.stringify({
-      model: "claude-haiku-4-5-20251001",
-      max_tokens: 1,
+      model: "claude-sonnet-4-6",
       messages: [{ role: "user", content: "hi" }],
     }),
   });
 
-  if (res.ok) return { valid: true };
-
-  const data = await res.json().catch(() => null);
-  const msg =
-    data?.error?.message ?? `Authentication failed (${res.status})`;
-
+  // 401/403 = key is definitely bad
   if (res.status === 401) return { valid: false, error: "Invalid API key" };
   if (res.status === 403) return { valid: false, error: "Key lacks permissions" };
-  return { valid: false, error: msg };
+
+  // Any other response (200, 400, 429, 529, etc.) means auth succeeded —
+  // the key is valid even if the specific request had issues
+  return { valid: true };
 }
 
 async function verifyOpenAI(key: string) {

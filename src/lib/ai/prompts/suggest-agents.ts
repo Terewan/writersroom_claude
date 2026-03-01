@@ -11,15 +11,17 @@ Show Idea: ${showIdea}
 Genre: ${genre}
 Format: ${format}
 
+The USER is the showrunner. Do NOT suggest a showrunner, head writer, or executive producer — the user fills that role. Instead, suggest specialized writers who report to the showrunner.
+
 Each agent should have a distinct creative perspective and complement the others. Consider:
-- A showrunner-type who keeps the big picture in focus
 - A character specialist who focuses on emotional depth
 - A plot/structure expert who handles pacing and twists
 - A dialogue specialist or genre expert for the specific genre
+- A world-building or research specialist relevant to the show's setting
 
 For each agent, provide:
 - name: A memorable, professional name
-- role: Their specific role in the writer's room (e.g., "Head Writer", "Story Editor", "Character Developer")
+- role: Their specific role in the writer's room (e.g., "Story Editor", "Character Developer", "Script Doctor")
 - expertise: What they specialize in (2-3 sentences)
 - personality_traits: 3 distinct personality traits that influence their writing
 - writing_style: A brief description of their writing style

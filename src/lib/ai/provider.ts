@@ -42,6 +42,16 @@ export function getAllModelOptions() {
   );
 }
 
+/** Look up which provider owns a given model alias */
+export function getProviderForModel(alias: string): ProviderKey | null {
+  for (const [provider, models] of Object.entries(MODEL_CATALOG)) {
+    if (models.some((m) => m.alias === alias)) {
+      return provider as ProviderKey;
+    }
+  }
+  return null;
+}
+
 export function createWritersRoomProvider(apiKeys: ApiKeys) {
   const languageModels: Record<string, LanguageModelV3> = {};
 

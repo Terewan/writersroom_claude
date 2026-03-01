@@ -68,3 +68,63 @@ export const suggestAgentsResponseSchema = z.object({
 
 export type SuggestedAgent = z.infer<typeof suggestedAgentSchema>;
 export type SuggestAgentsResponse = z.infer<typeof suggestAgentsResponseSchema>;
+
+// ── Discussion Schemas ──────────────────────────────────────────────────
+
+export const createDiscussionSchema = z.object({
+  project_id: z.string().uuid(),
+  topic: z.string().min(1).max(500),
+  max_rounds: z.number().int().min(1).max(20).optional(),
+});
+
+export type CreateDiscussionInput = z.infer<typeof createDiscussionSchema>;
+
+export const userMessageSchema = z.object({
+  content: z.string().min(1).max(5000),
+});
+
+export type UserMessageInput = z.infer<typeof userMessageSchema>;
+
+export const updateProposalSchema = z.object({
+  status: z.enum(["approved", "rejected", "modified"]),
+  user_notes: z.string().max(2000).nullable().optional(),
+  proposed_content: z.record(z.string(), z.unknown()).optional(),
+});
+
+export type UpdateProposalInput = z.infer<typeof updateProposalSchema>;
+
+export const orchestratorDecisionSchema = z.object({
+  next_agent_id: z.string(),
+  reasoning: z.string(),
+  should_propose: z.boolean(),
+  proposal_category: z.enum(["character", "beat", "bible"]).nullable(),
+  should_pause: z.boolean().optional(),
+});
+
+export type OrchestratorDecision = z.infer<typeof orchestratorDecisionSchema>;
+
+export const memoryExtractionSchema = z.object({
+  entries: z.array(
+    z.object({
+      category: z.string(),
+      keywords: z.array(z.string()),
+      summary: z.string(),
+      importance: z.number().int().min(1).max(10),
+    })
+  ),
+});
+
+export type MemoryExtraction = z.infer<typeof memoryExtractionSchema>;
+
+export const proposalExtractionSchema = z.object({
+  proposals: z.array(
+    z.object({
+      category: z.enum(["character", "beat", "bible"]),
+      title: z.string(),
+      description: z.string(),
+      proposed_content: z.record(z.string(), z.unknown()),
+    })
+  ),
+});
+
+export type ProposalExtraction = z.infer<typeof proposalExtractionSchema>;

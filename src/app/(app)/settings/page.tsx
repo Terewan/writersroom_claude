@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useSyncExternalStore } from "react";
 import {
   Settings,
   Eye,
@@ -30,7 +30,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useSettingsStore } from "@/stores/settings-store";
-import { MODEL_CATALOG, getAllModelOptions, type ProviderKey } from "@/lib/ai/provider";
+import { Badge } from "@/components/ui/badge";
+import { MODEL_CATALOG, getAllModelOptions, getProviderForModel, type ProviderKey } from "@/lib/ai/provider";
 
 const PROVIDERS = [
   {
@@ -75,6 +76,13 @@ export default function SettingsPage() {
     setDefaultRoundCount,
   } = useSettingsStore();
 
+  // Wait for Zustand persist to hydrate from localStorage
+  const hydrated = useSyncExternalStore(
+    (cb) => useSettingsStore.persist.onFinishHydration(cb),
+    () => useSettingsStore.persist.hasHydrated(),
+    () => false,
+  );
+
   const modelOptions = getAllModelOptions();
 
   const groupedModels = (Object.keys(MODEL_CATALOG) as ProviderKey[]).map(
@@ -84,6 +92,14 @@ export default function SettingsPage() {
       models: modelOptions.filter((m) => m.provider === provider),
     }),
   );
+
+  if (!hydrated) {
+    return (
+      <div className="flex min-h-[50vh] items-center justify-center">
+        <Loader2 className="h-6 w-6 animate-spin text-amber" />
+      </div>
+    );
+  }
 
   return (
     <div className="grain-overlay relative min-h-screen">
@@ -130,43 +146,63 @@ export default function SettingsPage() {
         <div className="mt-10 space-y-4 animate-fade-up opacity-0 delay-200">
           <h2 className="font-display text-xl font-semibold">Model Roles</h2>
           <p className="text-sm text-muted-foreground">
-            Assign which model handles each type of task in the writer&apos;s room.
+            Choose which AI model powers each type of task.
+            The model you pick requires its provider&apos;s API key above.
           </p>
 
-          {(["fast", "smart", "creative"] as const).map((role) => (
-            <Card key={role} className="border-border/60 bg-card/50">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-sm font-medium capitalize">
-                  {role}
-                </CardTitle>
-                <CardDescription className="text-xs">
-                  {ROLE_DESCRIPTIONS[role]}
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Select
-                  value={modelConfig[role]}
-                  onValueChange={(val) => setModelConfig({ [role]: val })}
-                >
-                  <SelectTrigger className="w-full">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {groupedModels.map((group) => (
-                      <SelectGroup key={group.provider}>
-                        <SelectLabel>{group.label}</SelectLabel>
-                        {group.models.map((m) => (
-                          <SelectItem key={m.value} value={m.value}>
-                            {m.label}
-                          </SelectItem>
-                        ))}
-                      </SelectGroup>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </CardContent>
-            </Card>
-          ))}
+          {(["fast", "smart", "creative"] as const).map((role) => {
+            const selectedProvider = getProviderForModel(modelConfig[role]);
+            const missingKey = selectedProvider && !apiKeys[selectedProvider];
+
+            return (
+              <Card key={role} className="border-border/60 bg-card/50">
+                <CardHeader className="pb-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <CardTitle className="text-sm font-medium capitalize">
+                        {role}
+                      </CardTitle>
+                      <CardDescription className="text-xs">
+                        {ROLE_DESCRIPTIONS[role]}
+                      </CardDescription>
+                    </div>
+                    {selectedProvider && !missingKey && (
+                      <Badge variant="outline" className="text-[10px] text-emerald-500 border-emerald-500/30">
+                        {PROVIDER_LABELS[selectedProvider]}
+                      </Badge>
+                    )}
+                    {missingKey && (
+                      <Badge variant="outline" className="text-[10px] text-destructive border-destructive/30">
+                        {PROVIDER_LABELS[selectedProvider]} key missing
+                      </Badge>
+                    )}
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <Select
+                    value={modelConfig[role]}
+                    onValueChange={(val) => setModelConfig({ [role]: val })}
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {groupedModels.map((group) => (
+                        <SelectGroup key={group.provider}>
+                          <SelectLabel>{group.label}</SelectLabel>
+                          {group.models.map((m) => (
+                            <SelectItem key={m.value} value={m.value}>
+                              {m.label}
+                            </SelectItem>
+                          ))}
+                        </SelectGroup>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </CardContent>
+              </Card>
+            );
+          })}
         </div>
 
         {/* Preferences */}

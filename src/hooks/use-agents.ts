@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useDataRepository } from "./use-data-repository";
+import { useSettingsStore } from "@/stores/settings-store";
 import type { CreateAgentInput, UpdateAgentInput, SuggestAgentsResponse } from "@/lib/validators";
 
 export function useAgents(projectId: string) {
@@ -50,6 +51,8 @@ export function useDeleteAgent(projectId: string) {
 
 export function useSuggestAgents(projectId: string) {
   const queryClient = useQueryClient();
+  const apiKeys = useSettingsStore((s) => s.apiKeys);
+  const modelConfig = useSettingsStore((s) => s.modelConfig);
 
   return useMutation({
     mutationFn: async (input: {
@@ -57,9 +60,21 @@ export function useSuggestAgents(projectId: string) {
       genre: string;
       format: "tv_series" | "feature_film" | "custom";
     }): Promise<SuggestAgentsResponse> => {
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+      };
+
+      // Send API keys so the server can use the user's chosen provider
+      if (apiKeys.anthropic) headers["x-anthropic-key"] = apiKeys.anthropic;
+      if (apiKeys.openai) headers["x-openai-key"] = apiKeys.openai;
+      if (apiKeys.google) headers["x-google-key"] = apiKeys.google;
+
+      // Send the user's chosen "smart" model for AI generation tasks
+      headers["x-model"] = modelConfig.smart;
+
       const response = await fetch(`/api/projects/${projectId}/agents/suggest`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers,
         body: JSON.stringify(input),
       });
       if (!response.ok) {

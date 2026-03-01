@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { generateObject } from "ai";
 import { suggestAgentsSchema, suggestAgentsResponseSchema } from "@/lib/validators";
-import { createWritersRoomProvider } from "@/lib/ai/provider";
+import { createWritersRoomProvider, getProviderForModel } from "@/lib/ai/provider";
 import { buildSuggestAgentsPrompt } from "@/lib/ai/prompts/suggest-agents";
 
 export async function POST(request: Request) {
@@ -30,14 +30,30 @@ export async function POST(request: Request) {
       );
     }
 
-    const provider = createWritersRoomProvider({
+    // User's chosen model from settings (defaults to "sonnet")
+    const requestedModel = request.headers.get("x-model") ?? "sonnet";
+
+    // Check if the user has the key for their chosen model's provider
+    const provider = getProviderForModel(requestedModel);
+    const keyMap: Record<string, string> = {
+      anthropic: anthropicKey,
+      openai: openaiKey,
+      google: googleKey,
+    };
+
+    let modelId = requestedModel;
+    if (!provider || !keyMap[provider]) {
+      // Fallback: pick the first provider that has a key
+      if (anthropicKey) modelId = "sonnet";
+      else if (openaiKey) modelId = "gpt-4o";
+      else modelId = "gemini-2.0-flash";
+    }
+
+    const wrProvider = createWritersRoomProvider({
       anthropic: anthropicKey || undefined,
       openai: openaiKey || undefined,
       google: googleKey || undefined,
     });
-
-    // Pick the best available model
-    const modelId = anthropicKey ? "sonnet" : openaiKey ? "gpt-4o" : "gemini-pro";
 
     const prompt = buildSuggestAgentsPrompt({
       showIdea: input.show_idea,
@@ -46,7 +62,7 @@ export async function POST(request: Request) {
     });
 
     const { object } = await generateObject({
-      model: provider.languageModel(modelId),
+      model: wrProvider.languageModel(modelId),
       schema: suggestAgentsResponseSchema,
       prompt,
     });
