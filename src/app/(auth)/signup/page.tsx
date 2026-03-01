@@ -12,7 +12,7 @@ import { UserRound } from "lucide-react";
 export default function SignUpPage() {
   const router = useRouter();
   const [state, action, isPending] = useActionState(
-    async (_prev: { error: string } | null, formData: FormData) => {
+    async (_prev: { error?: string; success?: string } | null, formData: FormData) => {
       const result = await signUp(formData);
       return result ?? null;
     },
@@ -68,6 +68,9 @@ export default function SignUpPage() {
           </div>
           {state?.error && (
             <p className="text-sm text-destructive">{state.error}</p>
+          )}
+          {state?.success && (
+            <p className="text-sm text-emerald-500">{state.success}</p>
           )}
           <Button
             type="submit"

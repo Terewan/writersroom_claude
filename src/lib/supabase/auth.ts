@@ -1,6 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { headers } from "next/headers";
 import { createClient } from "./server";
 
 function isSupabaseConfigured(): boolean {
@@ -16,6 +17,8 @@ export async function signUp(formData: FormData) {
   }
 
   const supabase = await createClient();
+  const headerStore = await headers();
+  const origin = headerStore.get("origin") ?? "";
 
   const email = formData.get("email") as string;
   const password = formData.get("password") as string;
@@ -23,13 +26,18 @@ export async function signUp(formData: FormData) {
   const { error } = await supabase.auth.signUp({
     email,
     password,
+    options: {
+      emailRedirectTo: `${origin}/auth/callback`,
+    },
   });
 
   if (error) {
     return { error: error.message };
   }
 
-  redirect("/dashboard");
+  // With email confirmation enabled, user won't be signed in yet.
+  // Show a message telling them to check their email.
+  return { success: "Check your email for a confirmation link." };
 }
 
 export async function signIn(formData: FormData) {
