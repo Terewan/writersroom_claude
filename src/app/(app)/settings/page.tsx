@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useSyncExternalStore } from "react";
+import { useState, useCallback, useSyncExternalStore } from "react";
+import { useRouter } from "next/navigation";
 import {
   Settings,
   Eye,
@@ -9,6 +10,7 @@ import {
   Loader2,
   AlertCircle,
   Trash2,
+  LogOut,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -233,7 +235,81 @@ export default function SettingsPage() {
             </CardContent>
           </Card>
         </div>
+
+        {/* Account / Sign Out */}
+        <AccountSection />
       </div>
+    </div>
+  );
+}
+
+function AccountSection() {
+  const router = useRouter();
+  const [confirming, setConfirming] = useState(false);
+  const isSupabaseConfigured = !!process.env.NEXT_PUBLIC_SUPABASE_URL;
+
+  const handleSignOut = useCallback(async () => {
+    if (isSupabaseConfigured) {
+      // Supabase mode: call server action
+      const { signOut } = await import("@/lib/supabase/auth");
+      await signOut();
+    } else {
+      // Guest mode: clear all localStorage stores and redirect
+      localStorage.removeItem("writers-room-settings");
+      localStorage.removeItem("writers-room-projects");
+      localStorage.removeItem("writers-room-discussions");
+      localStorage.removeItem("writers-room-ui");
+      router.push("/dashboard");
+      router.refresh();
+    }
+  }, [isSupabaseConfigured, router]);
+
+  return (
+    <div className="mt-10 space-y-4 animate-fade-up opacity-0 delay-400">
+      <h2 className="font-display text-xl font-semibold">Account</h2>
+
+      <Card className="border-border/60 bg-card/50">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm font-medium">
+            {isSupabaseConfigured ? "Sign Out" : "Clear All Data"}
+          </CardTitle>
+          <CardDescription className="text-xs">
+            {isSupabaseConfigured
+              ? "Sign out of your account."
+              : "Clear all projects, agents, discussions, and settings from this browser."}
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {!confirming ? (
+            <Button
+              variant="outline"
+              className="text-destructive border-destructive/30 hover:bg-destructive/10"
+              onClick={() => setConfirming(true)}
+            >
+              <LogOut className="h-4 w-4" />
+              {isSupabaseConfigured ? "Sign Out" : "Clear All Data & Reset"}
+            </Button>
+          ) : (
+            <div className="flex items-center gap-3">
+              <p className="text-sm text-destructive">Are you sure?</p>
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={handleSignOut}
+              >
+                Yes, {isSupabaseConfigured ? "sign out" : "clear everything"}
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setConfirming(false)}
+              >
+                Cancel
+              </Button>
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }

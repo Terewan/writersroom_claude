@@ -1,10 +1,28 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useChatStore } from "@/stores/chat-store";
 import { useSettingsStore } from "@/stores/settings-store";
+import type { Database } from "@/types/database";
+
+type AgentRow = Database["public"]["Tables"]["agents"]["Row"];
+type DiscussionRow = Database["public"]["Tables"]["discussions"]["Row"];
+type DiscussionMessageRow =
+  Database["public"]["Tables"]["discussion_messages"]["Row"];
+type MemoryIndexRow = Database["public"]["Tables"]["memory_index"]["Row"];
+type ProposalRow = Database["public"]["Tables"]["proposals"]["Row"];
+
+/** Context the client sends to the /start endpoint so the server
+ *  doesn't need to look up data from a repository (critical for guest mode). */
+export interface StreamStartContext {
+  discussionId: string;
+  discussion: DiscussionRow;
+  agents: AgentRow[];
+  existingMessages?: DiscussionMessageRow[];
+  existingMemories?: MemoryIndexRow[];
+  approvedProposals?: ProposalRow[];
+}
 
 interface UseDiscussionStreamOptions {
   projectId: string;
-  discussionId: string;
   onPause?: () => void;
   onProposal?: (proposal: {
     id: string;
@@ -185,7 +203,6 @@ function parseSSEChunk(
 
 export function useDiscussionStream({
   projectId,
-  discussionId,
   onPause,
   onProposal,
   onComplete,
@@ -201,7 +218,7 @@ export function useDiscussionStream({
   const callbacksRef = useRef({ onPause, onProposal, onComplete, onError });
   callbacksRef.current = { onPause, onProposal, onComplete, onError };
 
-  const start = useCallback(async () => {
+  const start = useCallback(async (context: StreamStartContext) => {
     // Abort any existing connection before starting a new one
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
@@ -211,7 +228,7 @@ export function useDiscussionStream({
     abortControllerRef.current = controller;
 
     const headers = buildHeaders(apiKeys, modelConfig);
-    const url = `/api/projects/${projectId}/discussions/${discussionId}/start`;
+    const url = `/api/projects/${projectId}/discussions/${context.discussionId}/start`;
 
     try {
       setIsConnected(true);
@@ -219,6 +236,13 @@ export function useDiscussionStream({
       const response = await fetch(url, {
         method: "POST",
         headers,
+        body: JSON.stringify({
+          discussion: context.discussion,
+          agents: context.agents,
+          existingMessages: context.existingMessages ?? [],
+          existingMemories: context.existingMemories ?? [],
+          approvedProposals: context.approvedProposals ?? [],
+        }),
         signal: controller.signal,
       });
 
@@ -286,7 +310,7 @@ export function useDiscussionStream({
       callbacksRef.current.onError?.(message);
       setIsConnected(false);
     }
-  }, [apiKeys, modelConfig, projectId, discussionId]);
+  }, [apiKeys, modelConfig, projectId]);
 
   const stop = useCallback(() => {
     if (abortControllerRef.current) {

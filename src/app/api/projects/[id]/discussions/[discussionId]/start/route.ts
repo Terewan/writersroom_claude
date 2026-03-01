@@ -8,6 +8,15 @@ import { DiscussionOrchestrator } from "@/lib/ai/orchestrator";
 import { GuestRepository } from "@/lib/data/guest-repository";
 import { SupabaseRepository } from "@/lib/data/supabase-repository";
 import type { DataRepository } from "@/lib/data/repository";
+import { useDiscussionStore } from "@/stores/discussion-store";
+import type { Database } from "@/types/database";
+
+type DiscussionRow = Database["public"]["Tables"]["discussions"]["Row"];
+type AgentRow = Database["public"]["Tables"]["agents"]["Row"];
+type DiscussionMessageRow =
+  Database["public"]["Tables"]["discussion_messages"]["Row"];
+type MemoryIndexRow = Database["public"]["Tables"]["memory_index"]["Row"];
+type ProposalRow = Database["public"]["Tables"]["proposals"]["Row"];
 
 function getRepository(): DataRepository {
   if (process.env.NEXT_PUBLIC_SUPABASE_URL) {
@@ -21,7 +30,8 @@ export async function POST(
   { params }: { params: Promise<{ id: string; discussionId: string }> },
 ) {
   try {
-    const { id: projectId, discussionId } = await params;
+    // Await params per Next.js 16 conventions (used for URL validation below)
+    await params;
 
     // Gather API keys from headers (client-provided) or env
     const anthropicKey =
@@ -76,34 +86,48 @@ export async function POST(
       return wrProvider.languageModel("gemini-2.0-flash");
     }
 
-    // Load discussion context from repository
-    const repo = getRepository();
-    const discussion = await repo.getDiscussion(discussionId);
-    if (!discussion) {
-      return NextResponse.json(
-        { message: "Discussion not found" },
-        { status: 404 },
-      );
-    }
+    // Read context from request body (client sends everything it knows)
+    const body = await request.json() as {
+      discussion?: DiscussionRow;
+      agents?: AgentRow[];
+      existingMessages?: DiscussionMessageRow[];
+      existingMemories?: MemoryIndexRow[];
+      approvedProposals?: ProposalRow[];
+    };
 
-    // Load agents for the project
-    const agents = await repo.listAgents(projectId);
-    if (agents.length < 2) {
+    const discussion = body.discussion;
+    const agents = body.agents;
+
+    if (!discussion || !agents || agents.length < 2) {
       return NextResponse.json(
-        { message: "Need at least 2 agents to start a discussion." },
+        { message: "Missing discussion/agents context or need at least 2 agents." },
         { status: 400 },
       );
     }
 
-    // Load existing messages, memories, and proposals for context continuity
-    const existingMessages = await repo.listMessages(discussionId);
-    const existingMemories = await repo.listMemories(projectId);
-    const proposals = await repo.listProposals(discussionId);
-    const approvedProposals = proposals.filter(
-      (p) => p.status === "approved",
+    const existingMessages = body.existingMessages ?? [];
+    const existingMemories = body.existingMemories ?? [];
+    const approvedProposals = (body.approvedProposals ?? []).filter(
+      (p: ProposalRow) => p.status === "approved",
     );
 
-    // Create orchestrator
+    // Get repository for writes during the orchestrator run
+    const repo = getRepository();
+
+    // In guest mode, seed the server-side store with the discussion
+    // so orchestrator writes (updateDiscussion, etc.) don't throw
+    if (!process.env.NEXT_PUBLIC_SUPABASE_URL) {
+      const store = useDiscussionStore.getState();
+      store.setDiscussion(discussion);
+      for (const msg of existingMessages) {
+        store.setMessage(msg);
+      }
+      for (const mem of existingMemories) {
+        store.setMemoryEntry(mem);
+      }
+    }
+
+    // Create orchestrator with context from request body
     const orchestrator = new DiscussionOrchestrator({
       smartModel: resolveModel(smartModel),
       creativeModel: resolveModel(creativeModel),

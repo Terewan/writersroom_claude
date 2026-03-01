@@ -57,7 +57,6 @@ export default function WritersRoomPage() {
 
   const { start, stop } = useDiscussionStream({
     projectId: project.id,
-    discussionId: activeDiscussionId ?? "",
     onPause: handlePause,
     onProposal: handleProposal,
     onComplete: handleComplete,
@@ -73,13 +72,19 @@ export default function WritersRoomPage() {
       setActiveDiscussionId(discussion.id);
       setIsPaused(false);
       useChatStore.getState().clearMessages();
-      // Start streaming after creating the discussion
-      // Small delay to ensure state is settled
-      setTimeout(() => start(), 50);
+      // Send full context in the body so the server doesn't need repo lookups
+      start({
+        discussionId: discussion.id,
+        discussion,
+        agents,
+        existingMessages: [],
+        existingMemories: [],
+        approvedProposals: [],
+      });
     } catch (err) {
       console.error("[WritersRoom] Failed to create discussion:", err);
     }
-  }, [createDiscussion, project.id, start]);
+  }, [createDiscussion, project.id, start, agents]);
 
   const handleSendMessage = useCallback(async (content: string) => {
     if (!activeDiscussionId) return;
@@ -116,10 +121,27 @@ export default function WritersRoomPage() {
     setIsPaused(true);
   }, [stop]);
 
-  const handleContinue = useCallback(() => {
+  const handleContinue = useCallback(async () => {
+    if (!activeDiscussionId) return;
     setIsPaused(false);
-    start();
-  }, [start]);
+
+    // Find the active discussion from the cached list
+    const discussion = (discussions ?? []).find((d) => d.id === activeDiscussionId);
+    if (!discussion) return;
+
+    // Load existing data for context continuity
+    const messages = await repo.listMessages(activeDiscussionId);
+    const memories = await repo.listMemories(project.id);
+
+    start({
+      discussionId: activeDiscussionId,
+      discussion,
+      agents,
+      existingMessages: messages,
+      existingMemories: memories,
+      approvedProposals: proposals ?? [],
+    });
+  }, [activeDiscussionId, start, discussions, agents, proposals, repo, project.id]);
 
   const handleEndDiscussion = useCallback(async () => {
     if (!activeDiscussionId) return;
@@ -257,6 +279,7 @@ export default function WritersRoomPage() {
       defaultLeftSize={75}
       minLeftSize={50}
       minRightSize={15}
+      autoSaveId="writers-room-layout"
     />
   );
 }
