@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   BookOpen,
+  Bot,
   ChevronLeft,
   ChevronRight,
   Clapperboard,
@@ -31,6 +32,12 @@ interface NavItem {
 
 function getProjectNav(projectId: string): NavItem[] {
   return [
+    {
+      label: "Agents",
+      href: `/project/${projectId}/agents`,
+      icon: Bot,
+      section: "project",
+    },
     {
       label: "Writer's Room",
       href: `/project/${projectId}/room`,
