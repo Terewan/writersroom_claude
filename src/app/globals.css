@@ -1,26 +1,232 @@
 @import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+@custom-variant dark (&:is(.dark *));
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-display: var(--font-display);
+  --font-body: var(--font-body);
+  --font-sans: var(--font-body);
+  --font-mono: var(--font-mono);
+  --color-amber: var(--amber);
+  --color-amber-glow: var(--amber-glow);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 8px);
+  --radius-3xl: calc(var(--radius) + 12px);
+  --radius-4xl: calc(var(--radius) + 16px);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+/* ============================================================
+   Writer's Room — Cinematic Literary Studio palette
+   Deep charcoals, warm amber/gold accents, cream text
+   ============================================================ */
+
+:root {
+  --radius: 0.5rem;
+
+  /* Warm amber accent */
+  --amber: #c8a55c;
+  --amber-glow: #c8a55c33;
+
+  /* Light mode — warm parchment tones */
+  --background: #faf8f3;
+  --foreground: #1c1917;
+  --card: #ffffff;
+  --card-foreground: #1c1917;
+  --popover: #ffffff;
+  --popover-foreground: #1c1917;
+  --primary: #c8a55c;
+  --primary-foreground: #1c1917;
+  --secondary: #f0ece3;
+  --secondary-foreground: #44403c;
+  --muted: #f0ece3;
+  --muted-foreground: #78716c;
+  --accent: #f0ece3;
+  --accent-foreground: #1c1917;
+  --destructive: #dc2626;
+  --border: #e2ded5;
+  --input: #e2ded5;
+  --ring: #c8a55c;
+
+  --chart-1: #c8a55c;
+  --chart-2: #7c6f4f;
+  --chart-3: #a3846f;
+  --chart-4: #d4a853;
+  --chart-5: #8b7355;
+
+  --sidebar: #f5f2eb;
+  --sidebar-foreground: #1c1917;
+  --sidebar-primary: #c8a55c;
+  --sidebar-primary-foreground: #1c1917;
+  --sidebar-accent: #ebe7de;
+  --sidebar-accent-foreground: #1c1917;
+  --sidebar-border: #e2ded5;
+  --sidebar-ring: #c8a55c;
+}
+
+.dark {
+  --background: #0f0e0c;
+  --foreground: #e8e4db;
+  --card: #1a1816;
+  --card-foreground: #e8e4db;
+  --popover: #1a1816;
+  --popover-foreground: #e8e4db;
+  --primary: #c8a55c;
+  --primary-foreground: #0f0e0c;
+  --secondary: #252220;
+  --secondary-foreground: #e8e4db;
+  --muted: #252220;
+  --muted-foreground: #8a8279;
+  --accent: #252220;
+  --accent-foreground: #e8e4db;
+  --destructive: #ef4444;
+  --border: #2e2a27;
+  --input: #2e2a27;
+  --ring: #c8a55c;
+
+  --chart-1: #c8a55c;
+  --chart-2: #a3846f;
+  --chart-3: #d4a853;
+  --chart-4: #7c6f4f;
+  --chart-5: #8b7355;
+
+  --sidebar: #141210;
+  --sidebar-foreground: #e8e4db;
+  --sidebar-primary: #c8a55c;
+  --sidebar-primary-foreground: #0f0e0c;
+  --sidebar-accent: #1f1d1a;
+  --sidebar-accent-foreground: #e8e4db;
+  --sidebar-border: #2e2a27;
+  --sidebar-ring: #c8a55c;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+/* ============================================================
+   Typography
+   ============================================================ */
+.font-display {
+  font-family: var(--font-display), "Cormorant Garamond", Georgia, serif;
 }
+
+.font-body {
+  font-family: var(--font-body), "Outfit", system-ui, sans-serif;
+}
+
+/* ============================================================
+   Grain overlay — adds a subtle film-grain texture
+   ============================================================ */
+.grain-overlay::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  pointer-events: none;
+  opacity: 0.03;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='1'/%3E%3C/svg%3E");
+  background-repeat: repeat;
+  background-size: 256px 256px;
+}
+
+/* ============================================================
+   Glow effects
+   ============================================================ */
+.amber-glow {
+  box-shadow: 0 0 20px var(--amber-glow), 0 0 60px var(--amber-glow);
+}
+
+.amber-glow-soft {
+  box-shadow: 0 0 40px var(--amber-glow);
+}
+
+/* ============================================================
+   Animations
+   ============================================================ */
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.animate-fade-up {
+  animation: fade-up 0.5s ease-out forwards;
+}
+
+.animate-fade-in {
+  animation: fade-in 0.4s ease-out forwards;
+}
+
+.animate-shimmer {
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    var(--amber-glow) 50%,
+    transparent 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 3s ease-in-out infinite;
+}
+
+/* Stagger delays */
+.delay-100 { animation-delay: 100ms; }
+.delay-200 { animation-delay: 200ms; }
+.delay-300 { animation-delay: 300ms; }
+.delay-400 { animation-delay: 400ms; }
+.delay-500 { animation-delay: 500ms; }
