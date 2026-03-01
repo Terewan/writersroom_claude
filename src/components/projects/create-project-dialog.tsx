@@ -83,8 +83,10 @@ export function CreateProjectDialog({ open, onOpenChange }: CreateProjectDialogP
       resetForm();
       onOpenChange(false);
       router.push(`/project/${project.id}/agents`);
-    } catch {
-      setErrors({ form: "Failed to create project. Please try again." });
+    } catch (err) {
+      console.error("[CreateProject] Error:", err);
+      const msg = err instanceof Error ? err.message : "Unknown error";
+      setErrors({ form: `Failed to create project: ${msg}` });
     }
   }
 

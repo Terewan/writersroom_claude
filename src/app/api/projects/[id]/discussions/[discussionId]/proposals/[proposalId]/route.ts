@@ -1,16 +1,7 @@
 import { NextResponse } from "next/server";
 import { updateProposalSchema } from "@/lib/validators";
-import { GuestRepository } from "@/lib/data/guest-repository";
-import { SupabaseRepository } from "@/lib/data/supabase-repository";
-import type { DataRepository } from "@/lib/data/repository";
+import { getServerRepository } from "@/lib/data/server-repository";
 import type { Json } from "@/types/database";
-
-function getRepository(): DataRepository {
-  if (process.env.NEXT_PUBLIC_SUPABASE_URL) {
-    return new SupabaseRepository();
-  }
-  return new GuestRepository();
-}
 
 export async function PATCH(
   request: Request,
@@ -29,7 +20,7 @@ export async function PATCH(
     const body = await request.json();
     const input = updateProposalSchema.parse(body);
 
-    const repo = getRepository();
+    const repo = await getServerRepository();
 
     // Cast proposed_content from Record<string, unknown> to Json for DB compatibility
     const updatePayload = {

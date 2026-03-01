@@ -14,19 +14,27 @@ export async function POST(request: Request) {
     const body = await request.json();
     const input = createProjectSchema.parse(body);
 
-    const { data, error } = await supabase
+    // Step 1: Insert the project
+    const { error: insertError } = await supabase
       .from("projects")
-      .insert({ ...input, created_by: user.id })
-      .select()
+      .insert({ ...input, created_by: user.id });
+
+    if (insertError) throw insertError;
+
+    // The handle_new_project AFTER trigger has now fired and created
+    // the project_members "owner" row, so the SELECT RLS policy passes.
+
+    // Step 2: Fetch the newly created project
+    const { data, error: selectError } = await supabase
+      .from("projects")
+      .select("*")
+      .eq("created_by", user.id)
+      .eq("title", input.title)
+      .order("created_at", { ascending: false })
+      .limit(1)
       .single();
 
-    if (error) throw error;
-
-    // Create project_members entry for owner
-    const projectData = data as Record<string, unknown>;
-    await supabase
-      .from("project_members")
-      .insert({ project_id: projectData.id, user_id: user.id, role: "owner" });
+    if (selectError) throw selectError;
 
     return NextResponse.json(data, { status: 201 });
   } catch (error) {

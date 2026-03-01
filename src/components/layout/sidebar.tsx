@@ -13,6 +13,7 @@ import {
   Settings,
   Users,
   FileDown,
+  NotebookPen,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -42,6 +43,12 @@ function getProjectNav(projectId: string): NavItem[] {
       label: "Writer's Room",
       href: `/project/${projectId}/room`,
       icon: MessageSquare,
+      section: "project",
+    },
+    {
+      label: "Assistant Notes",
+      href: `/project/${projectId}/notes`,
+      icon: NotebookPen,
       section: "project",
     },
     {

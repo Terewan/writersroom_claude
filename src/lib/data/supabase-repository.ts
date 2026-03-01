@@ -30,7 +30,11 @@ type BibleSectionRow = Database["public"]["Tables"]["show_bible_sections"]["Row"
 type UntypedClient = SupabaseClient;
 
 export class SupabaseRepository implements DataRepository {
-  private client: UntypedClient = createClient();
+  private client: UntypedClient;
+
+  constructor(client?: UntypedClient) {
+    this.client = client ?? createClient();
+  }
 
   async listProjects(): Promise<ProjectRow[]> {
     const { data, error } = await this.client
@@ -52,9 +56,12 @@ export class SupabaseRepository implements DataRepository {
   }
 
   async createProject(input: ProjectInsert): Promise<ProjectRow> {
+    const { data: { user } } = await this.client.auth.getUser();
+    if (!user) throw new Error("Not authenticated");
+
     const { data, error } = await this.client
       .from("projects")
-      .insert(input as Record<string, unknown>)
+      .insert({ ...input, created_by: user.id } as Record<string, unknown>)
       .select()
       .single();
     if (error) throw error;

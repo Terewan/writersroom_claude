@@ -1,15 +1,6 @@
 import { NextResponse } from "next/server";
 import { createDiscussionSchema } from "@/lib/validators";
-import { GuestRepository } from "@/lib/data/guest-repository";
-import { SupabaseRepository } from "@/lib/data/supabase-repository";
-import type { DataRepository } from "@/lib/data/repository";
-
-function getRepository(): DataRepository {
-  if (process.env.NEXT_PUBLIC_SUPABASE_URL) {
-    return new SupabaseRepository();
-  }
-  return new GuestRepository();
-}
+import { getServerRepository } from "@/lib/data/server-repository";
 
 export async function POST(
   request: Request,
@@ -23,7 +14,7 @@ export async function POST(
       project_id: projectId,
     });
 
-    const repo = getRepository();
+    const repo = await getServerRepository();
     const discussion = await repo.createDiscussion(input);
     return NextResponse.json(discussion, { status: 201 });
   } catch (error) {
@@ -39,7 +30,7 @@ export async function GET(
 ) {
   try {
     const { id: projectId } = await params;
-    const repo = getRepository();
+    const repo = await getServerRepository();
     const discussions = await repo.listDiscussions(projectId);
     return NextResponse.json(discussions);
   } catch (error) {

@@ -5,6 +5,7 @@ const makeMessage = (overrides: Partial<StreamingMessage> = {}): StreamingMessag
   id: "msg-1",
   agentId: "agent-1",
   agentName: "Test Agent",
+  agentRole: "Story Editor",
   agentColor: "#6366f1",
   role: "agent",
   content: "Hello from agent",

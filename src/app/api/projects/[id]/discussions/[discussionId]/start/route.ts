@@ -5,9 +5,7 @@ import {
 } from "@/lib/ai/provider";
 import type { ProviderKey } from "@/lib/ai/provider";
 import { DiscussionOrchestrator } from "@/lib/ai/orchestrator";
-import { GuestRepository } from "@/lib/data/guest-repository";
-import { SupabaseRepository } from "@/lib/data/supabase-repository";
-import type { DataRepository } from "@/lib/data/repository";
+import { getServerRepository } from "@/lib/data/server-repository";
 import { useDiscussionStore } from "@/stores/discussion-store";
 import type { Database } from "@/types/database";
 
@@ -18,12 +16,6 @@ type DiscussionMessageRow =
 type MemoryIndexRow = Database["public"]["Tables"]["memory_index"]["Row"];
 type ProposalRow = Database["public"]["Tables"]["proposals"]["Row"];
 
-function getRepository(): DataRepository {
-  if (process.env.NEXT_PUBLIC_SUPABASE_URL) {
-    return new SupabaseRepository();
-  }
-  return new GuestRepository();
-}
 
 export async function POST(
   request: Request,
@@ -112,7 +104,7 @@ export async function POST(
     );
 
     // Get repository for writes during the orchestrator run
-    const repo = getRepository();
+    const repo = await getServerRepository();
 
     // In guest mode, seed the server-side store with the discussion
     // so orchestrator writes (updateDiscussion, etc.) don't throw

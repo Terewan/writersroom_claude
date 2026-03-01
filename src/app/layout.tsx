@@ -36,6 +36,7 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <body
         className={`${cormorant.variable} ${outfit.variable} ${geistMono.variable} font-body antialiased`}
+        suppressHydrationWarning
       >
         <ThemeProvider>
           <QueryProvider>{children}</QueryProvider>

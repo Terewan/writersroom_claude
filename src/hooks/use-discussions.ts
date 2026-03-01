@@ -66,3 +66,12 @@ export function useProposals(discussionId: string) {
     enabled: Boolean(discussionId),
   });
 }
+
+export function useMemories(projectId: string) {
+  const repo = useDataRepository();
+  return useQuery({
+    queryKey: ["memories", projectId],
+    queryFn: () => repo.listMemories(projectId),
+    enabled: Boolean(projectId),
+  });
+}

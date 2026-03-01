@@ -12,8 +12,10 @@ type ProposalRow = Database["public"]["Tables"]["proposals"]["Row"];
 
 interface ProposalCardProps {
   proposal: ProposalRow;
-  onDecision: (id: string, status: "approved" | "rejected" | "modified", notes?: string) => void;
+  onDecision: (id: string, status: "approved" | "rejected" | "modified", notes?: string, tags?: string[]) => void;
 }
+
+const TAG_OPTIONS = ["character", "beat", "bible"] as const;
 
 const CATEGORY_BORDER: Record<string, string> = {
   character: "border-l-purple-500",
@@ -36,6 +38,10 @@ const STATUS_BADGE: Record<string, { label: string; className: string }> = {
 export function ProposalCard({ proposal, onDecision }: ProposalCardProps) {
   const [showModifyInput, setShowModifyInput] = useState(false);
   const [modifyNotes, setModifyNotes] = useState("");
+  const [selectedTags, setSelectedTags] = useState<string[]>(() => {
+    const cat = proposal.category;
+    return TAG_OPTIONS.includes(cat as typeof TAG_OPTIONS[number]) ? [cat] : [];
+  });
   const isDecided = proposal.status !== "pending";
 
   const handleApprove = useCallback(() => {
@@ -46,13 +52,24 @@ export function ProposalCard({ proposal, onDecision }: ProposalCardProps) {
     onDecision(proposal.id, "rejected");
   }, [onDecision, proposal.id]);
 
+  const toggleTag = useCallback((tag: string) => {
+    setSelectedTags((prev) => {
+      if (prev.includes(tag)) {
+        // Don't allow removing the last tag
+        if (prev.length === 1) return prev;
+        return prev.filter((t) => t !== tag);
+      }
+      return [...prev, tag];
+    });
+  }, []);
+
   const handleModifySubmit = useCallback(() => {
-    if (modifyNotes.trim()) {
-      onDecision(proposal.id, "modified", modifyNotes.trim());
+    if (modifyNotes.trim() && selectedTags.length > 0) {
+      onDecision(proposal.id, "modified", modifyNotes.trim(), selectedTags);
       setShowModifyInput(false);
       setModifyNotes("");
     }
-  }, [onDecision, proposal.id, modifyNotes]);
+  }, [onDecision, proposal.id, modifyNotes, selectedTags]);
 
   const borderClass = CATEGORY_BORDER[proposal.category] ?? "border-l-gray-500";
   const badgeClass = CATEGORY_BADGE_CLASS[proposal.category] ?? "";
@@ -110,6 +127,28 @@ export function ProposalCard({ proposal, onDecision }: ProposalCardProps) {
 
           {showModifyInput && (
             <div className="mt-3 space-y-2">
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs font-medium text-muted-foreground mr-1">Tags:</span>
+                {TAG_OPTIONS.map((tag) => {
+                  const isActive = selectedTags.includes(tag);
+                  const colorClass = CATEGORY_BADGE_CLASS[tag] ?? "";
+                  return (
+                    <button
+                      key={tag}
+                      type="button"
+                      onClick={() => toggleTag(tag)}
+                      className={cn(
+                        "rounded-md px-2.5 py-1 text-xs font-medium capitalize transition-all",
+                        isActive
+                          ? colorClass
+                          : "bg-muted text-muted-foreground opacity-50 hover:opacity-75",
+                      )}
+                    >
+                      {isActive ? `✓ ${tag}` : tag}
+                    </button>
+                  );
+                })}
+              </div>
               <Textarea
                 placeholder="Describe your modifications..."
                 value={modifyNotes}
@@ -119,7 +158,7 @@ export function ProposalCard({ proposal, onDecision }: ProposalCardProps) {
               <Button
                 size="sm"
                 onClick={handleModifySubmit}
-                disabled={!modifyNotes.trim()}
+                disabled={!modifyNotes.trim() || selectedTags.length === 0}
               >
                 Submit Modification
               </Button>

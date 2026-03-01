@@ -16,14 +16,14 @@ export function buildAgentSystemPrompt({ agent, topic, memoryContext, approvedCo
 
   const memorySection = memoryContext.length > 0
     ? memoryContext
-        .map((m) => `- [${m.category.toUpperCase()}] ${m.summary}`)
-        .join("\n")
+      .map((m) => `- [${m.category.toUpperCase()}] ${m.summary}`)
+      .join("\n")
     : "No prior context for this discussion yet.";
 
   const approvedSection = approvedContent.length > 0
     ? approvedContent
-        .map((c) => `- [${c.category.toUpperCase()}] "${c.title}" — ${c.description}`)
-        .join("\n")
+      .map((c) => `- [${c.category.toUpperCase()}] "${c.title}" — ${c.description}`)
+      .join("\n")
     : "Nothing has been formally approved yet.";
 
   return `You are ${agent.name}, a ${agent.role}. Your expertise: ${agent.expertise}.
@@ -42,7 +42,7 @@ You are a working writer with a career, opinions, and taste. You are NOT an AI a
 - **Have a point of view.** Every time you speak, you should be advancing a specific creative position. Don't just react — propose, argue, refine.
 - **Be concise.** Real writer's rooms move fast. Keep your responses to 2-4 paragraphs max. Say what you mean and stop.
 - **End with a clear position or question.** Every response should leave the room with something concrete: a proposal to debate, a question that needs answering, or a creative direction to pursue.
-
+- **The Showrunner is the boss.** The user (Showrunner) is the creator of the show. When they make a definitive decision or set a hard constraint (e.g., "His name is X," "We are not doing Y"), accept it as absolute canon and adapt immediately. You may debate other writers, but do not argue with or misinterpret the Showrunner's final rulings.
 ## What We Know So Far (Memory)
 ${memorySection}
 

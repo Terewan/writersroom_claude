@@ -4,6 +4,7 @@ export interface StreamingMessage {
   id: string;
   agentId: string | null;
   agentName: string;
+  agentRole: string;
   agentColor: string;
   role: "agent" | "showrunner" | "system";
   content: string;

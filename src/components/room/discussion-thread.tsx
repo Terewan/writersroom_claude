@@ -12,7 +12,7 @@ type ProposalRow = Database["public"]["Tables"]["proposals"]["Row"];
 
 interface DiscussionThreadProps {
   proposals: ProposalRow[];
-  onProposalDecision: (id: string, status: "approved" | "rejected" | "modified", notes?: string) => void;
+  onProposalDecision: (id: string, status: "approved" | "rejected" | "modified", notes?: string, tags?: string[]) => void;
 }
 
 export function DiscussionThread({ proposals, onProposalDecision }: DiscussionThreadProps) {
@@ -49,7 +49,7 @@ export function DiscussionThread({ proposals, onProposalDecision }: DiscussionTh
   }
 
   return (
-    <ScrollArea className="flex-1">
+    <ScrollArea className="flex-1 min-h-0">
       <div className="space-y-1 p-4">
         {messages.map((message, index) => (
           <div key={message.id}>

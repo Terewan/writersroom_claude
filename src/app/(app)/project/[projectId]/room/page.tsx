@@ -104,6 +104,7 @@ export default function WritersRoomPage() {
         id: crypto.randomUUID(),
         agentId: null,
         agentName: "Showrunner",
+        agentRole: "",
         agentColor: "#f59e0b",
         role: "showrunner",
         content,
@@ -173,6 +174,7 @@ export default function WritersRoomPage() {
           id: msg.id,
           agentId: msg.agent_id,
           agentName: agent?.name ?? "Showrunner",
+          agentRole: agent?.role ?? "",
           agentColor: agent?.avatar_color ?? "#f59e0b",
           role: msg.role,
           content: msg.content,
@@ -198,13 +200,75 @@ export default function WritersRoomPage() {
   }, [stop]);
 
   const handleProposalDecision = useCallback(
-    (id: string, status: "approved" | "rejected" | "modified", notes?: string) => {
-      updateProposal.mutate({
+    async (id: string, status: "approved" | "rejected" | "modified", notes?: string, tags?: string[]) => {
+      // 1. Update proposal status in DB
+      await updateProposal.mutateAsync({
         id,
         data: { status, user_notes: notes ?? null },
       });
+
+      // 2. If modified: inject showrunner message + auto-resume + create memory entries
+      if (status === "modified" && notes && activeDiscussionId) {
+        const proposal = (proposals ?? []).find((p) => p.id === id);
+        const category = proposal?.category ?? "general";
+        // Use provided tags or fall back to single-category behavior
+        const effectiveTags = tags && tags.length > 0
+          ? tags
+          : (["character", "beat", "bible"].includes(category) ? [category] : []);
+        const tagPrefix = effectiveTags.map((t) => `[${t.toUpperCase()}]`).join("") + (effectiveTags.length > 0 ? " " : "");
+        const proposalLabel = proposal
+          ? `the proposed ${category} "${proposal.title}"`
+          : "this proposal";
+        const content = `${tagPrefix}About ${proposalLabel}: ${notes}`;
+
+        // Persist showrunner message
+        const turnOrder = useChatStore.getState().messages.length + 1;
+        await repo.createMessage({
+          discussion_id: activeDiscussionId,
+          agent_id: null,
+          round_number: 0,
+          turn_order: turnOrder,
+          role: "showrunner",
+          content,
+        });
+
+        // Display immediately in chat
+        useChatStore.getState().addMessage({
+          id: crypto.randomUUID(),
+          agentId: null,
+          agentName: "Showrunner",
+          agentRole: "",
+          agentColor: "#f59e0b",
+          role: "showrunner",
+          content,
+          roundNumber: 0,
+          turnOrder,
+          isStreaming: false,
+        });
+
+        // Create a memory entry per tag for agent retrieval
+        const title = proposal?.title ?? "proposal";
+        const titleKeywords = title.toLowerCase().split(/\s+/).filter((w) => w.length > 2);
+        for (const tag of effectiveTags) {
+          try {
+            await repo.createMemoryEntry({
+              project_id: project.id,
+              category: tag,
+              keywords: [tag, ...titleKeywords],
+              summary: `Showrunner feedback on "${title}": ${notes}`,
+              source_discussion_id: activeDiscussionId,
+              importance: 8,
+            });
+          } catch (err) {
+            console.error(`[WritersRoom] Failed to create memory entry for tag "${tag}":`, err);
+          }
+        }
+
+        // Auto-resume so agents respond to the feedback
+        handleContinue();
+      }
     },
-    [updateProposal],
+    [updateProposal, activeDiscussionId, proposals, repo, handleContinue, project.id],
   );
 
   const isSessionActive = useChatStore((s) => s.isSessionActive);

@@ -28,6 +28,7 @@ export type OrchestratorEvent =
       messageId: string;
       agentId: string;
       agentName: string;
+      agentRole: string;
       agentColor: string;
       roundNumber: number;
       turnOrder: number;
@@ -69,7 +70,7 @@ interface RecentMessage {
 }
 
 const MAX_MESSAGES_PER_RUN = 5;
-const RECENT_CONTEXT_COUNT = 3;
+const RECENT_CONTEXT_COUNT = 20;
 
 // ── Orchestrator ──────────────────────────────────────────────────────────
 
@@ -225,6 +226,7 @@ export class DiscussionOrchestrator {
       messageId: msgId,
       agentId: agent.id,
       agentName: agent.name,
+      agentRole: agent.role,
       agentColor: agent.avatar_color,
       roundNumber: this.config.discussion.current_round,
       turnOrder: this.turnOrder,

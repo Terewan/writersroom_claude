@@ -1,15 +1,6 @@
 import { NextResponse } from "next/server";
 import { userMessageSchema } from "@/lib/validators";
-import { GuestRepository } from "@/lib/data/guest-repository";
-import { SupabaseRepository } from "@/lib/data/supabase-repository";
-import type { DataRepository } from "@/lib/data/repository";
-
-function getRepository(): DataRepository {
-  if (process.env.NEXT_PUBLIC_SUPABASE_URL) {
-    return new SupabaseRepository();
-  }
-  return new GuestRepository();
-}
+import { getServerRepository } from "@/lib/data/server-repository";
 
 export async function POST(
   request: Request,
@@ -20,7 +11,7 @@ export async function POST(
     const body = await request.json();
     const input = userMessageSchema.parse(body);
 
-    const repo = getRepository();
+    const repo = await getServerRepository();
 
     // Get current discussion for round number
     const discussion = await repo.getDiscussion(discussionId);

@@ -46,7 +46,7 @@ export function DiscussionMessage({ message }: DiscussionMessageProps) {
       <div className="max-w-[80%]">
         <div className="mb-1 flex items-baseline gap-2">
           <span className="text-sm font-bold">{message.agentName}</span>
-          <span className="text-xs text-muted-foreground">Agent</span>
+          <span className="text-xs text-muted-foreground">{message.agentRole || "Agent"}</span>
         </div>
         <div className="rounded-lg bg-muted px-4 py-3">
           <p className="text-sm whitespace-pre-wrap">

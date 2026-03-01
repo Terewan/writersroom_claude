@@ -42,6 +42,7 @@ type SSEEvent =
       messageId: string;
       agentId: string;
       agentName: string;
+      agentRole: string;
       agentColor: string;
       roundNumber: number;
       turnOrder: number;
@@ -99,6 +100,7 @@ function dispatchSSEEvent(
         id: event.messageId,
         agentId: event.agentId,
         agentName: event.agentName,
+        agentRole: event.agentRole,
         agentColor: event.agentColor,
         role: "agent",
         content: "",
