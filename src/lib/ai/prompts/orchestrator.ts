@@ -3,9 +3,10 @@ interface OrchestratorPromptInput {
   agents: Array<{ id: string; name: string; role: string; expertise: string }>;
   recentMessages: Array<{ agentName: string; content: string }>;
   messageCount: number;
+  lastSpeakerAgentId: string | null;
 }
 
-export function buildOrchestratorPrompt({ topic, agents, recentMessages, messageCount }: OrchestratorPromptInput): string {
+export function buildOrchestratorPrompt({ topic, agents, recentMessages, messageCount, lastSpeakerAgentId }: OrchestratorPromptInput): string {
   const agentList = agents
     .map((a) => `- ID: "${a.id}" | Name: ${a.name} | Role: ${a.role} | Expertise: ${a.expertise}`)
     .join("\n");
@@ -18,6 +19,13 @@ export function buildOrchestratorPrompt({ topic, agents, recentMessages, message
   const recentSpeakerNote = recentSpeakers.length > 0
     ? `Recent speakers (in order): ${recentSpeakers.join(" -> ")}`
     : "No messages yet — this is the opening of the discussion.";
+
+  const lastSpeaker = lastSpeakerAgentId
+    ? agents.find((a) => a.id === lastSpeakerAgentId)
+    : null;
+  const lastSpeakerNote = lastSpeaker
+    ? `The last speaker was "${lastSpeaker.name}" (ID: "${lastSpeaker.id}"). Do NOT select them. `
+    : "";
 
   return `You are the orchestrator for a TV writer's room discussion. Your job is to read the conversation and decide which writer should speak next, based on natural conversational dynamics — NOT rigid round-robin rotation.
 
@@ -34,12 +42,17 @@ ${recentSpeakerNote}
 ## Recent Messages
 ${recentContext || "(No messages yet — pick who should open the discussion.)"}
 
+## HARD RULE — No Self-Replies
+
+**NEVER pick the agent who sent the last message.** A writer cannot respond to themselves. ${lastSpeakerNote}Pick a DIFFERENT agent from the list above.
+
 ## Your Decision Criteria
 
 1. **Relevance**: Who has the most relevant expertise for the current thread of conversation? If someone just raised a character question, the character specialist should probably respond.
 2. **Freshness**: Who hasn't spoken recently and might have a valuable perspective to add? Avoid letting the same 1-2 voices dominate.
 3. **Conversational flow**: Does the last message ask a direct question, challenge someone's idea, or open a new thread? Route accordingly.
-4. **Natural dynamics**: Real writer's rooms have interruptions, rebuttals, and building-on. Pick the agent whose response would feel most natural here.
+4. **Showrunner Authority**: Pay close attention to the Showrunner. If they make a declarative statement or set a hard constraint, the next agent must accept it without argument. But if they just ask a question, agents can debate it. Route to the agent best suited to adapt to or answer the Showrunner.
+5. **Natural dynamics**: Real writer's rooms have interruptions, rebuttals, and building-on. Pick the agent whose response would feel most natural here.
 
 ## Proposal Detection
 

@@ -41,11 +41,20 @@ export async function updateSession(request: NextRequest) {
     request.nextUrl.pathname.startsWith("/login") ||
     request.nextUrl.pathname.startsWith("/signup") ||
     request.nextUrl.pathname.startsWith("/auth/callback");
+  const isApiRoute = request.nextUrl.pathname.startsWith("/api/");
 
-  if (!user && !isAuthRoute && request.nextUrl.pathname !== "/") {
+  if (!user && !isAuthRoute && !isApiRoute && request.nextUrl.pathname !== "/") {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     return NextResponse.redirect(url);
+  }
+
+  // API routes get a 401 JSON response instead of a redirect
+  if (!user && isApiRoute) {
+    return NextResponse.json(
+      { message: "Not authenticated" },
+      { status: 401 },
+    );
   }
 
   if (user && isAuthRoute) {

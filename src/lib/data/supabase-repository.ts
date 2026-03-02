@@ -1,6 +1,5 @@
 import type { Database } from "@/types/database";
 import type { DataRepository } from "./repository";
-import { createClient } from "@/lib/supabase/client";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 type ProjectRow = Database["public"]["Tables"]["projects"]["Row"];
@@ -32,8 +31,8 @@ type UntypedClient = SupabaseClient;
 export class SupabaseRepository implements DataRepository {
   private client: UntypedClient;
 
-  constructor(client?: UntypedClient) {
-    this.client = client ?? createClient();
+  constructor(client: UntypedClient) {
+    this.client = client;
   }
 
   async listProjects(): Promise<ProjectRow[]> {

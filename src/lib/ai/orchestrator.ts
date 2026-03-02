@@ -24,27 +24,42 @@ type ProposalRow = Database["public"]["Tables"]["proposals"]["Row"];
 export type OrchestratorEvent =
   | { type: "discussion-start"; discussionId: string }
   | {
-      type: "agent-start";
-      messageId: string;
-      agentId: string;
-      agentName: string;
-      agentRole: string;
-      agentColor: string;
-      roundNumber: number;
-      turnOrder: number;
-    }
+    type: "agent-start";
+    messageId: string;
+    agentId: string;
+    agentName: string;
+    agentRole: string;
+    agentColor: string;
+    roundNumber: number;
+    turnOrder: number;
+  }
   | { type: "agent-delta"; messageId: string; content: string }
   | { type: "agent-done"; messageId: string }
   | {
-      type: "proposal";
-      id: string;
-      category: string;
-      title: string;
-      description: string;
-      proposed_content: Record<string, unknown>;
-    }
+    type: "proposal";
+    id: string;
+    category: string;
+    title: string;
+    description: string;
+    proposed_content: Record<string, unknown>;
+  }
   | { type: "pause"; messageCount: number }
   | { type: "memory-updated"; entryId: string }
+  | {
+    type: "prompt-log";
+    id: string;
+    callType: "orchestrator" | "proposal" | "agent" | "memory";
+    label: string;
+    modelAlias: string;
+    promptText: string;
+    timestamp: number;
+  }
+  | {
+    type: "prompt-log-response";
+    id: string;
+    responseText: string;
+    timestamp: number;
+  }
   | { type: "error"; message: string }
   | { type: "done" };
 
@@ -54,6 +69,9 @@ interface OrchestratorConfig {
   smartModel: LanguageModelV3;
   creativeModel: LanguageModelV3;
   fastModel: LanguageModelV3;
+  smartModelAlias: string;
+  creativeModelAlias: string;
+  fastModelAlias: string;
   agents: AgentRow[];
   discussion: DiscussionRow;
   existingMessages: DiscussionMessageRow[];
@@ -79,12 +97,17 @@ export class DiscussionOrchestrator {
   private messageCount: number;
   private turnOrder: number;
   private sessionMessages: DiscussionMessageRow[];
+  private lastSpeakerAgentId: string | null;
 
   constructor(config: OrchestratorConfig) {
     this.config = config;
     this.messageCount = config.existingMessages.length;
     this.turnOrder = config.existingMessages.length;
     this.sessionMessages = [];
+
+    // Initialize from the last existing message so we never self-reply on resume
+    const lastMsg = config.existingMessages.at(-1);
+    this.lastSpeakerAgentId = lastMsg?.agent_id ?? null;
   }
 
   async *run(): AsyncGenerator<OrchestratorEvent> {
@@ -113,21 +136,32 @@ export class DiscussionOrchestrator {
     for (let i = 0; i < MAX_MESSAGES_PER_RUN; i++) {
       const recentMessages = this.getRecentMessages();
 
-      const decision = await this.askOrchestrator(recentMessages);
-
-      if (decision.should_propose && decision.proposal_category) {
-        yield* this.extractAndYieldProposals(
-          recentMessages,
-          decision.proposal_category,
-        );
-      }
+      const decision = yield* this.askOrchestrator(recentMessages);
 
       if (decision.should_pause || this.messageCount >= startingCount + MAX_MESSAGES_PER_RUN) {
+        // Extract proposals before pausing so the user sees them with the pause
+        if (decision.should_propose && decision.proposal_category) {
+          yield* this.extractAndYieldProposals(
+            recentMessages,
+            decision.proposal_category,
+          );
+        }
         yield* this.pauseDiscussion();
         return;
       }
 
-      const selectedAgent = this.findAgent(decision.next_agent_id);
+      let selectedAgent = this.findAgent(decision.next_agent_id);
+
+      // Hard guard: never let the same agent speak twice in a row
+      if (selectedAgent && selectedAgent.id === this.lastSpeakerAgentId) {
+        const otherAgents = this.config.agents.filter(
+          (a) => a.id !== this.lastSpeakerAgentId && a.is_active,
+        );
+        selectedAgent = otherAgents.length > 0
+          ? otherAgents[Math.floor(Math.random() * otherAgents.length)]
+          : undefined;
+      }
+
       if (!selectedAgent) {
         yield* this.pauseDiscussion();
         return;
@@ -143,7 +177,17 @@ export class DiscussionOrchestrator {
         conversationContext,
       );
 
+      this.lastSpeakerAgentId = selectedAgent.id;
       this.messageCount++;
+
+      // Extract proposals AFTER the agent speaks (so the user doesn't see
+      // a proposal card while the agent bubble still shows "...")
+      if (decision.should_propose && decision.proposal_category) {
+        yield* this.extractAndYieldProposals(
+          this.getRecentMessages(),
+          decision.proposal_category,
+        );
+      }
     }
 
     yield* this.pauseDiscussion();
@@ -151,7 +195,7 @@ export class DiscussionOrchestrator {
 
   // ── Orchestrator Decision ─────────────────────────────────────────────
 
-  private async askOrchestrator(recentMessages: RecentMessage[]) {
+  private async *askOrchestrator(recentMessages: RecentMessage[]) {
     const prompt = buildOrchestratorPrompt({
       topic: this.config.discussion.topic,
       agents: this.config.agents.map((a) => ({
@@ -162,13 +206,32 @@ export class DiscussionOrchestrator {
       })),
       recentMessages,
       messageCount: this.messageCount,
+      lastSpeakerAgentId: this.lastSpeakerAgentId,
     });
+
+    const logId = crypto.randomUUID();
+    yield {
+      type: "prompt-log" as const,
+      id: logId,
+      callType: "orchestrator" as const,
+      label: "Who speaks next?",
+      modelAlias: this.config.smartModelAlias,
+      promptText: prompt,
+      timestamp: Date.now(),
+    };
 
     const result = await generateObject({
       model: this.config.smartModel,
       schema: orchestratorDecisionSchema,
       prompt,
     });
+
+    yield {
+      type: "prompt-log-response" as const,
+      id: logId,
+      responseText: JSON.stringify(result.object, null, 2),
+      timestamp: Date.now(),
+    };
 
     return result.object;
   }
@@ -179,17 +242,37 @@ export class DiscussionOrchestrator {
     recentMessages: RecentMessage[],
     category: "character" | "beat" | "bible",
   ): AsyncGenerator<OrchestratorEvent> {
+    const approvedTitles = this.config.approvedProposals.map((p) => p.title);
     const prompt = buildProposalExtractorPrompt({
       recentMessages,
       category,
       topic: this.config.discussion.topic,
+      approvedTitles,
     });
+
+    const logId = crypto.randomUUID();
+    yield {
+      type: "prompt-log" as const,
+      id: logId,
+      callType: "proposal" as const,
+      label: `Extract ${category} proposals`,
+      modelAlias: this.config.smartModelAlias,
+      promptText: prompt,
+      timestamp: Date.now(),
+    };
 
     const result = await generateObject({
       model: this.config.smartModel,
       schema: proposalExtractionSchema,
       prompt,
     });
+
+    yield {
+      type: "prompt-log-response" as const,
+      id: logId,
+      responseText: JSON.stringify(result.object, null, 2),
+      timestamp: Date.now(),
+    };
 
     for (const proposal of result.object.proposals) {
       const created = await this.config.repository.createProposal({
@@ -221,6 +304,17 @@ export class DiscussionOrchestrator {
     const msgId = crypto.randomUUID();
     this.turnOrder++;
 
+    const logId = crypto.randomUUID();
+    yield {
+      type: "prompt-log" as const,
+      id: logId,
+      callType: "agent" as const,
+      label: `${agent.name} responds`,
+      modelAlias: this.config.creativeModelAlias,
+      promptText: `[SYSTEM]\n${systemPrompt}\n\n[USER]\n${conversationContext}`,
+      timestamp: Date.now(),
+    };
+
     yield {
       type: "agent-start",
       messageId: msgId,
@@ -249,6 +343,13 @@ export class DiscussionOrchestrator {
 
     yield { type: "agent-done", messageId: msgId };
 
+    yield {
+      type: "prompt-log-response" as const,
+      id: logId,
+      responseText: fullContent,
+      timestamp: Date.now(),
+    };
+
     const persistedMessage = await this.config.repository.createMessage({
       discussion_id: this.config.discussion.id,
       agent_id: agent.id,
@@ -260,44 +361,68 @@ export class DiscussionOrchestrator {
 
     this.sessionMessages.push(persistedMessage);
 
-    this.updateMemoryIndex(fullContent, agent.name).catch(() => {});
+    yield* this.updateMemoryIndex(fullContent, agent.name);
   }
 
   // ── Memory ────────────────────────────────────────────────────────────
 
-  private async updateMemoryIndex(
+  private async *updateMemoryIndex(
     content: string,
     agentName: string,
-  ): Promise<string[]> {
+  ): AsyncGenerator<OrchestratorEvent> {
     const prompt = buildMemoryBrokerPrompt({
       messageContent: content,
       agentName,
       topic: this.config.discussion.topic,
     });
 
-    const result = await generateObject({
-      model: this.config.fastModel,
-      schema: memoryExtractionSchema,
-      prompt,
-    });
+    const logId = crypto.randomUUID();
+    yield {
+      type: "prompt-log" as const,
+      id: logId,
+      callType: "memory" as const,
+      label: `Index memories for ${agentName}`,
+      modelAlias: this.config.fastModelAlias,
+      promptText: prompt,
+      timestamp: Date.now(),
+    };
 
-    const entryIds: string[] = [];
-
-    for (const entry of result.object.entries) {
-      const created = await this.config.repository.createMemoryEntry({
-        project_id: this.config.discussion.project_id,
-        category: entry.category,
-        keywords: entry.keywords,
-        summary: entry.summary,
-        importance: entry.importance,
-        source_discussion_id: this.config.discussion.id,
-        source_round: this.config.discussion.current_round,
+    try {
+      const result = await generateObject({
+        model: this.config.fastModel,
+        schema: memoryExtractionSchema,
+        prompt,
       });
 
-      entryIds.push(created.id);
-    }
+      yield {
+        type: "prompt-log-response" as const,
+        id: logId,
+        responseText: JSON.stringify(result.object, null, 2),
+        timestamp: Date.now(),
+      };
 
-    return entryIds;
+      for (const entry of result.object.entries) {
+        const created = await this.config.repository.createMemoryEntry({
+          project_id: this.config.discussion.project_id,
+          category: entry.category,
+          keywords: entry.keywords,
+          summary: entry.summary,
+          importance: entry.importance,
+          source_discussion_id: this.config.discussion.id,
+          source_round: this.config.discussion.current_round,
+        });
+
+        yield { type: "memory-updated", entryId: created.id };
+      }
+    } catch {
+      // Memory indexing is non-critical — log failure but don't break the run
+      yield {
+        type: "prompt-log-response" as const,
+        id: logId,
+        responseText: "[error] Memory extraction failed",
+        timestamp: Date.now(),
+      };
+    }
   }
 
   private async fetchRelevantMemories(
@@ -358,7 +483,7 @@ export class DiscussionOrchestrator {
       .map((m) => `[${m.agentName}]: ${m.content}`)
       .join("\n\n");
 
-    return `The discussion so far (last few messages):\n\n${formatted}\n\nContinue the discussion on: ${this.config.discussion.topic}`;
+    return `The discussion so far:\n\n${formatted}\n\nRespond to the conversation naturally in character.`;
   }
 
   // ── Helpers ───────────────────────────────────────────────────────────

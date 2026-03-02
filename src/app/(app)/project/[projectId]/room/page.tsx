@@ -3,6 +3,7 @@
 import { useState, useCallback } from "react";
 import { useProjectContext } from "../layout";
 import { useChatStore } from "@/stores/chat-store";
+import { usePromptLogStore } from "@/stores/prompt-log-store";
 import {
   useDiscussions,
   useCreateDiscussion,
@@ -15,11 +16,12 @@ import { useDataRepository } from "@/hooks/use-data-repository";
 
 import { SplitPanel } from "@/components/layout/split-panel";
 import { DiscussionThread } from "@/components/room/discussion-thread";
+import { PromptLogView } from "@/components/room/prompt-log-view";
 import { DiscussionSidebar } from "@/components/room/discussion-sidebar";
 import { ShowrunnerInput } from "@/components/room/showrunner-input";
 import { AgentTypingIndicator } from "@/components/room/agent-typing-indicator";
 
-import { MessageSquare, Users } from "lucide-react";
+import { MessageSquare, FileText, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 
@@ -30,6 +32,7 @@ export default function WritersRoomPage() {
 
   const [activeDiscussionId, setActiveDiscussionId] = useState<string | null>(null);
   const [isPaused, setIsPaused] = useState(false);
+  const [activeTab, setActiveTab] = useState<"discussion" | "prompt-log">("discussion");
 
   const { data: discussions } = useDiscussions(project.id);
   const createDiscussion = useCreateDiscussion(project.id);
@@ -72,6 +75,7 @@ export default function WritersRoomPage() {
       setActiveDiscussionId(discussion.id);
       setIsPaused(false);
       useChatStore.getState().clearMessages();
+      usePromptLogStore.getState().clearEntries();
       // Send full context in the body so the server doesn't need repo lookups
       start({
         discussionId: discussion.id,
@@ -162,6 +166,7 @@ export default function WritersRoomPage() {
     stop();
     setActiveDiscussionId(id);
     useChatStore.getState().clearMessages();
+    usePromptLogStore.getState().clearEntries();
 
     // Load existing messages into the chat store
     try {
@@ -197,6 +202,7 @@ export default function WritersRoomPage() {
     setActiveDiscussionId(null);
     setIsPaused(false);
     useChatStore.getState().clearMessages();
+    usePromptLogStore.getState().clearEntries();
   }, [stop]);
 
   const handleProposalDecision = useCallback(
@@ -207,10 +213,29 @@ export default function WritersRoomPage() {
         data: { status, user_notes: notes ?? null },
       });
 
-      // 2. If modified: inject showrunner message + auto-resume + create memory entries
+      const proposal = (proposals ?? []).find((p) => p.id === id);
+      const category = proposal?.category ?? "general";
+      const title = proposal?.title ?? "proposal";
+      const titleKeywords = title.toLowerCase().split(/\s+/).filter((w) => w.length > 2);
+
+      // 2. If approved: promote to memory so agents treat it as canon
+      if (status === "approved" && activeDiscussionId) {
+        try {
+          await repo.createMemoryEntry({
+            project_id: project.id,
+            category,
+            keywords: [category, "approved", "canon", ...titleKeywords],
+            summary: `APPROVED — ${title}: ${proposal?.description ?? ""}`,
+            source_discussion_id: activeDiscussionId,
+            importance: 9,
+          });
+        } catch (err) {
+          console.error("[WritersRoom] Failed to create memory entry for approval:", err);
+        }
+      }
+
+      // 3. If modified: inject showrunner message + auto-resume + create memory entries
       if (status === "modified" && notes && activeDiscussionId) {
-        const proposal = (proposals ?? []).find((p) => p.id === id);
-        const category = proposal?.category ?? "general";
         // Use provided tags or fall back to single-category behavior
         const effectiveTags = tags && tags.length > 0
           ? tags
@@ -247,8 +272,6 @@ export default function WritersRoomPage() {
         });
 
         // Create a memory entry per tag for agent retrieval
-        const title = proposal?.title ?? "proposal";
-        const titleKeywords = title.toLowerCase().split(/\s+/).filter((w) => w.length > 2);
         for (const tag of effectiveTags) {
           try {
             await repo.createMemoryEntry({
@@ -299,18 +322,47 @@ export default function WritersRoomPage() {
   const chatPanel = (
     <div className="flex h-full flex-col">
       <div className="flex items-center gap-2 border-b px-4 py-3">
-        <MessageSquare className="h-5 w-5 text-muted-foreground" />
-        <h2 className="font-semibold">
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setActiveTab("discussion")}
+            className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-sm font-medium transition-colors ${
+              activeTab === "discussion"
+                ? "bg-primary text-primary-foreground"
+                : "text-muted-foreground hover:bg-muted hover:text-foreground"
+            }`}
+          >
+            <MessageSquare className="h-4 w-4" />
+            Discussion
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab("prompt-log")}
+            className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-sm font-medium transition-colors ${
+              activeTab === "prompt-log"
+                ? "bg-primary text-primary-foreground"
+                : "text-muted-foreground hover:bg-muted hover:text-foreground"
+            }`}
+          >
+            <FileText className="h-4 w-4" />
+            Prompt Log
+          </button>
+        </div>
+        <h2 className="ml-2 font-semibold">
           {activeDiscussionId
             ? (discussions ?? []).find((d) => d.id === activeDiscussionId)?.topic ?? "Discussion"
             : "Writer's Room"}
         </h2>
       </div>
 
-      <DiscussionThread
-        proposals={proposals ?? []}
-        onProposalDecision={handleProposalDecision}
-      />
+      {activeTab === "discussion" ? (
+        <DiscussionThread
+          proposals={proposals ?? []}
+          onProposalDecision={handleProposalDecision}
+        />
+      ) : (
+        <PromptLogView />
+      )}
 
       <AgentTypingIndicator />
 

@@ -49,12 +49,20 @@ export function DiscussionMessage({ message }: DiscussionMessageProps) {
           <span className="text-xs text-muted-foreground">{message.agentRole || "Agent"}</span>
         </div>
         <div className="rounded-lg bg-muted px-4 py-3">
-          <p className="text-sm whitespace-pre-wrap">
-            {message.content}
-            {message.isStreaming && (
-              <span className="animate-pulse ml-0.5">&#x2588;</span>
-            )}
-          </p>
+          {message.isStreaming && !message.content ? (
+            <span className="inline-flex gap-1 py-0.5">
+              <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground/60 animate-bounce" style={{ animationDelay: "0ms" }} />
+              <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground/60 animate-bounce" style={{ animationDelay: "150ms" }} />
+              <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground/60 animate-bounce" style={{ animationDelay: "300ms" }} />
+            </span>
+          ) : (
+            <p className="text-sm whitespace-pre-wrap">
+              {message.content}
+              {message.isStreaming && (
+                <span className="animate-pulse ml-0.5">&#x2588;</span>
+              )}
+            </p>
+          )}
         </div>
       </div>
     </div>

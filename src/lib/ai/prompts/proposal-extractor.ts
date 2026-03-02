@@ -2,9 +2,10 @@ interface ProposalExtractorPromptInput {
   recentMessages: Array<{ agentName: string; content: string }>;
   category: "character" | "beat" | "bible";
   topic: string;
+  approvedTitles?: string[];
 }
 
-export function buildProposalExtractorPrompt({ recentMessages, category, topic }: ProposalExtractorPromptInput): string {
+export function buildProposalExtractorPrompt({ recentMessages, category, topic, approvedTitles }: ProposalExtractorPromptInput): string {
   const conversationText = recentMessages
     .map((m) => `[${m.agentName}]: ${m.content}`)
     .join("\n\n");
@@ -57,13 +58,17 @@ Shape the \`proposed_content\` as:
 }`,
   };
 
+  const approvedSection = approvedTitles && approvedTitles.length > 0
+    ? `\n## Already Approved (DO NOT re-propose)\n${approvedTitles.map((t) => `- ${t}`).join("\n")}\n`
+    : "";
+
   return `You are a proposal extraction system for a TV writer's room. The orchestrator has flagged that the writers have reached a point where a concrete "${category}" proposal can be captured from their discussion. Your job is to distill their conversation into structured proposals for the showrunner to review.
 
 ## Discussion Topic
 ${topic}
 
 ## Proposal Category: ${category.toUpperCase()}
-
+${approvedSection}
 ## Recent Conversation
 ${conversationText}
 
@@ -74,10 +79,11 @@ ${categoryInstructions[category]}
 ## Rules
 
 1. Only extract proposals where the writers have made **concrete, specific suggestions** — not vague ideas or questions still being debated.
-2. If multiple writers contributed to shaping the same idea, synthesize their contributions into a single coherent proposal.
-3. If writers proposed **competing alternatives** for the same element, extract each as a separate proposal so the showrunner can choose.
-4. Each proposal needs a clear **title** (short, descriptive) and **description** (1-2 sentences summarizing the proposal in plain language).
-5. Capture the spirit of what the writers intended, even if they didn't articulate every field explicitly. Use the conversation context to fill in reasonable details, but do not invent major elements the writers never discussed.
+2. **Extract exactly ONE proposal** — the single best synthesis of the writers' discussion. If multiple writers contributed, merge their ideas into one coherent proposal. If they proposed competing alternatives, pick the strongest one.
+3. The proposal needs a clear **title** (short, descriptive) and **description** (1-2 sentences summarizing the proposal in plain language).
+4. Capture the spirit of what the writers intended, even if they didn't articulate every field explicitly. Use the conversation context to fill in reasonable details, but do not invent major elements the writers never discussed.
+5. **Showrunner Authority:** The Showrunner is the boss. If the Showrunner makes a definitive declarative statement (e.g., "His name is X"), treat this as the winning proposal and override any writers who disagreed. If the Showrunner only asked a question (e.g., "What do you think of X?"), then weigh all the writers' opinions normally.
+6. **Never re-propose already-approved items.** If a character, beat, or bible entry is listed under "Already Approved", do not extract it again — even if writers are still referencing it. Only extract genuinely NEW proposals.
 
 ## Required Output Format
 

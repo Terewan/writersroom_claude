@@ -33,25 +33,25 @@ import {
 } from "@/components/ui/select";
 import { useSettingsStore } from "@/stores/settings-store";
 import { Badge } from "@/components/ui/badge";
-import { MODEL_CATALOG, getAllModelOptions, getProviderForModel, type ProviderKey } from "@/lib/ai/provider";
+import { MODEL_CATALOG, getAllModelOptions, getProviderForModel, PROVIDER_DEFAULTS, type ProviderKey } from "@/lib/ai/provider";
 
 const PROVIDERS = [
   {
     key: "anthropic" as const,
     label: "Anthropic",
-    placeholder: "sk-ant-api03-...",
+    placeholder: "Enter your Anthropic API key",
     description: "Claude Opus, Sonnet, and Haiku",
   },
   {
     key: "openai" as const,
     label: "OpenAI",
-    placeholder: "sk-proj-...",
+    placeholder: "Enter your OpenAI API key",
     description: "GPT-4o, GPT-4o Mini, o3-mini, o4-mini",
   },
   {
     key: "google" as const,
     label: "Google AI",
-    placeholder: "AIza...",
+    placeholder: "Enter your Google AI API key",
     description: "Gemini 2.5 Pro, Gemini 2.0 Flash",
   },
 ];
@@ -84,6 +84,27 @@ export default function SettingsPage() {
     () => useSettingsStore.persist.hasHydrated(),
     () => false,
   );
+
+  // When a key is verified, auto-switch any model role whose current
+  // provider has no saved key to the newly verified provider's defaults.
+  const handleKeySaved = useCallback((provider: ProviderKey, key: string) => {
+    setApiKey(provider, key);
+
+    const defaults = PROVIDER_DEFAULTS[provider];
+    const keysAfterSave = { ...apiKeys, [provider]: key };
+    const updated: Partial<typeof modelConfig> = {};
+
+    for (const role of ["fast", "smart", "creative"] as const) {
+      const currentProvider = getProviderForModel(modelConfig[role]);
+      if (!currentProvider || !keysAfterSave[currentProvider]) {
+        updated[role] = defaults[role];
+      }
+    }
+
+    if (Object.keys(updated).length > 0) {
+      setModelConfig(updated);
+    }
+  }, [setApiKey, setModelConfig, modelConfig, apiKeys]);
 
   const modelOptions = getAllModelOptions();
 
@@ -138,7 +159,7 @@ export default function SettingsPage() {
               description={provider.description}
               placeholder={provider.placeholder}
               savedValue={apiKeys[provider.key]}
-              onSave={(val) => setApiKey(provider.key, val)}
+              onSave={(val) => handleKeySaved(provider.key, val)}
               onClear={() => setApiKey(provider.key, "")}
             />
           ))}
@@ -480,6 +501,12 @@ function StatusBadge({ status }: { status: VerifyStatus }) {
       return (
         <span className="flex items-center gap-1 rounded-full bg-destructive/10 px-2 py-0.5 text-xs text-destructive">
           <AlertCircle className="h-3 w-3" /> Invalid
+        </span>
+      );
+    case "idle":
+      return (
+        <span className="flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
+          No key saved
         </span>
       );
     default:

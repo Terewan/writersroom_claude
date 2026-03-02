@@ -31,7 +31,8 @@ ${messageContent}
    - 7-9: Core creative decision (e.g., "the central relationship is a slow-burn rivalry")
    - 10: Foundational premise (e.g., "the show is set in a near-future where memory is a commodity")
 
-5. If the message is purely conversational (agreements, transitions, generic reactions) with no extractable knowledge, return an empty entries array.
+5. **Showrunner Authority:** Pay special attention to the Showrunner. If they make a declarative statement or set a hard constraint (e.g., "His name is X," "We are not doing Y"), extract this as a high-importance (8-10) canon rule. If they are just asking a question (e.g., "What do you think of X?"), do not extract it as a decision.
+6. If the message is purely conversational (agreements, transitions, generic reactions) with no extractable knowledge, return an empty entries array.
 
 ## Required Output Format
 

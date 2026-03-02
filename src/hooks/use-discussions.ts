@@ -64,6 +64,7 @@ export function useProposals(discussionId: string) {
     queryKey: ["proposals", discussionId],
     queryFn: () => repo.listProposals(discussionId),
     enabled: Boolean(discussionId),
+    refetchOnWindowFocus: true,
   });
 }
 

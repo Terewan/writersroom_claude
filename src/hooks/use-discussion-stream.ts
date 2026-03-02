@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useChatStore } from "@/stores/chat-store";
+import { usePromptLogStore } from "@/stores/prompt-log-store";
 import { useSettingsStore } from "@/stores/settings-store";
 import type { Database } from "@/types/database";
 
@@ -59,6 +60,21 @@ type SSEEvent =
     }
   | { type: "pause"; messageCount: number }
   | { type: "memory-updated"; entryId: string }
+  | {
+      type: "prompt-log";
+      id: string;
+      callType: "orchestrator" | "proposal" | "agent" | "memory";
+      label: string;
+      modelAlias: string;
+      promptText: string;
+      timestamp: number;
+    }
+  | {
+      type: "prompt-log-response";
+      id: string;
+      responseText: string;
+      timestamp: number;
+    }
   | { type: "error"; message: string }
   | { type: "done" };
 
@@ -136,6 +152,27 @@ function dispatchSSEEvent(
     }
     case "memory-updated": {
       // Acknowledged but no action needed on the client side
+      break;
+    }
+    case "prompt-log": {
+      usePromptLogStore.getState().addEntry({
+        id: event.id,
+        callType: event.callType,
+        label: event.label,
+        modelAlias: event.modelAlias,
+        promptText: event.promptText,
+        promptTimestamp: event.timestamp,
+        responseText: null,
+        responseTimestamp: null,
+      });
+      break;
+    }
+    case "prompt-log-response": {
+      usePromptLogStore.getState().finalizeEntry(
+        event.id,
+        event.responseText,
+        event.timestamp,
+      );
       break;
     }
     case "error": {

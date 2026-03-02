@@ -124,7 +124,7 @@ export const proposalExtractionSchema = z.object({
       description: z.string(),
       proposed_content: z.record(z.string(), z.unknown()),
     })
-  ),
+  ).max(1),
 });
 
 export type ProposalExtraction = z.infer<typeof proposalExtractionSchema>;

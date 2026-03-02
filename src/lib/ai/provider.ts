@@ -52,6 +52,13 @@ export function getProviderForModel(alias: string): ProviderKey | null {
   return null;
 }
 
+/** Sensible economical defaults per provider for model roles. */
+export const PROVIDER_DEFAULTS: Record<ProviderKey, { fast: string; smart: string; creative: string }> = {
+  anthropic: { fast: "haiku", smart: "sonnet", creative: "sonnet" },
+  openai: { fast: "gpt-4o-mini", smart: "gpt-4o", creative: "gpt-4o" },
+  google: { fast: "gemini-2.0-flash", smart: "gemini-2.0-flash", creative: "gemini-2.5-pro" },
+};
+
 export function createWritersRoomProvider(apiKeys: ApiKeys) {
   const languageModels: Record<string, LanguageModelV3> = {};
 
